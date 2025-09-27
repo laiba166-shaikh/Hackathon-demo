@@ -1,17 +1,38 @@
 from agents import Agent
-from dataset_loader import load_house_listing
+from apis.geocode import getgeocode_address
+from apis.places import get_nearby_places
 
-room_hunter_agent = Agent(
-    name="Room Hunter Agent",
-    instructions = """
-    You are the Room Hunter Agent.
-    First, use the `load_house_listing` tool to fetch all available housing listings.
-    Then, based on the given roommate profile (city, area, budget, required rooms, amenities),
-    analyze the listings yourself and select the top 3 best matches.
+def get_room_hunter_agent(model_name):
+    return  Agent(
+        name="Room Hunter Agent",
+        model=model_name,
+        tools=[getgeocode_address,get_nearby_places],
+        instructions = """
+        You are the Room Hunter Agent.
+        Based on the given roommate profile (city, area, budget)
+            - you will first find the geocodes by calling getgeocode_address tool.
+            - Then call get_nearby_places with all the required parameter to find the housing that are the best fit to the user needs.
+            (e.g., "Within budget, same city, required amenities available").
+        Return a concise list of nearby locations.
+        """
+    )
 
-    Do not just return raw data — you must perform the matching logic.
-    For each recommended room, explain briefly why it is a good fit 
-    (e.g., "Within budget, same city, required amenities available").
-    """,
-    tools=[load_house_listing]
-)
+# user_data =  {
+#     "id": "R-012",
+#     "raw_profile_text": "Flat share in Gulshan-e-Iqbal, Karachi, 20k budget. Friends often visit. Food cook biryani.",
+#     "city": "Karachi",
+#     "area": "Gulshan-e-Iqbal",
+#     "budget_PKR": 20000,
+#     "sleep_schedule": "Night owl",
+#     "cleanliness": "Average",
+#     "noise_tolerance": "Loud ok",
+#     "study_habits": "Late-night study",
+#     "food_pref": "Veg"
+#   }
+
+# async def get_housing():
+#     response = await Runner.run(room_hunter_agent, json.dumps(user_data), run_config=config)
+#     print('o/p', response.final_output)
+
+# if __name__ == '__main__':
+#     asyncio.run(get_housing())
