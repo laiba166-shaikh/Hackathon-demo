@@ -8,14 +8,15 @@ from typing import Optional
 from profile_reader_agent import get_profile_reader_agent
 from match_scorer_agent import get_match_scorer_agent
 from redflag_agent import get_redflag_agent
+from wingman_agent import get_wingman_agent
+from room_matcher_agent import get_room_hunter_agent
 from agents import Agent, Runner,OpenAIChatCompletionsModel, RunConfig,AsyncOpenAI, ModelProvider, Model, set_default_openai_api, set_tracing_disabled, set_default_openai_client
 
-# Load environment variables from .env file
 load_dotenv(find_dotenv())
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 print('gemini key',GEMINI_API_KEY)
-MODEL_NAME='gemini-2.0-flash'
+MODEL_NAME='gemini-2.5-flash-lite'
 
 if not GEMINI_API_KEY:
     raise ValueError("GEMINI_API_KEY environment variable not set")
@@ -32,21 +33,9 @@ set_tracing_disabled(disabled=True)
 # class CustomModelProvider(ModelProvider):
 #     def get_model(self, model_name: str | None) -> Model:
 #         return OpenAIChatCompletionsModel(model=model_name or MODEL_NAME, openai_client=external_client)
-
 # CUSTOM_MODEL_PROVIDER = CustomModelProvider()
-
 # run_config = RunConfig(model_provider=CUSTOM_MODEL_PROVIDER)
 
-# async def ask_agent(userMessage:str):
-#     agent = Agent(
-#         name='Assistant', 
-#         instructions='You are a helpful assistant.',
-#     )
-
-#     result = await Runner.run(agent, userMessage,run_config=config)
-#     output=result.final_output
-#     print(output)
-#     return output
 
 def load_profiles():
     # Construct the file path relative to this script
@@ -58,9 +47,12 @@ def load_profiles():
 
 async def main3():
     roommates_data= load_profiles()
+    room_hunter_agent = get_room_hunter_agent(MODEL_NAME)
+    
     profile_reader = get_profile_reader_agent(MODEL_NAME)
     match_scorer = get_match_scorer_agent(MODEL_NAME)
     detect_conflicts = get_redflag_agent(MODEL_NAME)
+    wingman_agent= get_wingman_agent(MODEL_NAME)
     
     orch = Agent(
         name="Orchestrator",
@@ -74,9 +66,12 @@ async def main3():
 
             Steps you must follow:
             1. Parse the new ad with "parse_user_profile" tool.
+            1a. If user just ask about the location handsoff it to the room_hunter_agent.
+            
             2. For each dataset profile:
-                - Call score_match to compute compatibility score
+                - Call "score_match" to compute compatibility score.
                 - Call "detect_conflicts" to find red flags.
+                - Call "explain_match" to generate a short explanation.
             3. Collect results for all dataset profiles.
             4. Sort by score and return the TOP 3 matches.
             
@@ -88,6 +83,7 @@ async def main3():
                     "profile": { ... },
                     "score": { ... },
                     "red_flags": { ... },
+                    "suggestions": { ... }
                 },
                 ...
             ]
@@ -97,22 +93,27 @@ async def main3():
         tools=[
             profile_reader.as_tool(tool_name="parse_user_profile",tool_description="Parse User_ad into a clean structured format"),
             match_scorer.as_tool(tool_name='score_match',tool_description="Compare the user profile data with the dataset profile and returns the match score and resons."),
-            detect_conflicts.as_tool(tool_name='detect_conflicts',tool_description="Compare the user profile data with the dataset profile and returns a list of conflicts in a short and clear sentence.")
+            detect_conflicts.as_tool(tool_name='detect_conflicts',tool_description="Compare the user profile data with the dataset profile and returns a list of conflicts in a short and clear sentence."),
+            wingman_agent.as_tool(tool_name="explain_match",tool_description="Consider the matching score and conflicts and return summary and suggestions based on the profiles data.")
         ],
+        handoffs=[room_hunter_agent],
+        handoff_description='Look at the address, area and city of the user and hand over to room_hunter_agent only if user ask to provide him the nearby places.',
     )
     
-    user_raw_ad = "Karachi Gulshan e Iqbal near Nipa. Budget 38k. Saaf sutra banda chahiye. Raat ko 10 baje so jata hoon. Non-veg khata hoon. Bilkul shor pasand nahi. Guests allowed nahi"
+    user_raw_ad = "Karachi Gulshan e Iqbal near Nipa. Budget 38k. Saaf sutra banda chahiye. Raat ko 10 baje so jata hoon. Non-veg khata hoon. Bilkul shor pasand nahi. Guests allowed nahi."
+    # user_asking_loc ="Hostel seat available G-11, Islamabad. Budget no issue. Want Tidy banda, prefer Online classes, Quiet ok.I just want to know the nearby housing information."
+    
     user_prompt = json.dumps({
         'User_ad': user_raw_ad,
         "Roommate_dataset":roommates_data  
     })
     
+    print(len(roommates_data))
     try:
         response = await Runner.run(orch,user_prompt)
         print(response.final_output)
     except Exception as e:
         print('error: ', e)
-
 
 if __name__ == "__main__":
     asyncio.run(main3())
