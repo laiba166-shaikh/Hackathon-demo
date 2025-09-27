@@ -66,7 +66,7 @@ output_type=ProfileSchema)
 async def main():
     user_input=input('Enter your Profile:')
     result=await Runner.run( profile_Reader_agent,input=user_input,run_config=config)
-    print(result.final_output.model_dump_json())
+    print(result.final_output.model_dump_json(indent=2))
    
 if __name__ == "__main__":
     asyncio.run(main())
