@@ -1,29 +1,10 @@
 import os
 import asyncio
-from agents import Agent, Runner, AsyncOpenAI, OpenAIChatCompletionsModel, set_default_openai_client, set_default_openai_api, set_tracing_disabled
-from dotenv import find_dotenv, load_dotenv
 from setup_config import config
-
-
+from agents import Agent, Runner, set_default_openai_api, set_tracing_disabled
    
-# load_dotenv(find_dotenv())
-
-# BASE_URL=os.getenv('BASE_URL')
-# API_KEY=os.getenv('GEMINI_API_KEY')
-# MODEL='gemini-2.0-flash'
-
-# client = AsyncOpenAI(
-#     api_key=API_KEY,
-#     base_url=BASE_URL
-# )
-# model = OpenAIChatCompletionsModel(
-#     model=MODEL,
-#     openai_client=client)
-
-# set_default_openai_api('chat_completions')
-# set_default_openai_client(client,use_for_tracing=False)
-# set_tracing_disabled(True)
-
+set_default_openai_api('chat_completions')
+set_tracing_disabled(True)
 
 async def ask_agent(userMessage:str):
     agent = Agent(
@@ -33,7 +14,8 @@ async def ask_agent(userMessage:str):
 
     result = await Runner.run(agent, userMessage,run_config=config)
     output=result.final_output
+    print(output)
     return output
     
 if __name__ == "__main__":
-    asyncio.run(ask_agent())
+    asyncio.run(ask_agent('How are you?'))
