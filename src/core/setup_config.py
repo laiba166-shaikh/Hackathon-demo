@@ -7,7 +7,7 @@ from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-MODEL_NAME='gemini-2.5-flash'
+MODEL_NAME='gemini-2.0-flash'
 
 if not GEMINI_API_KEY:
     raise ValueError("GEMINI_API_KEY environment variable not set")
