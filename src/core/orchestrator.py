@@ -5,37 +5,28 @@ import asyncio
 import json
 from pydantic import BaseModel
 from typing import Optional
-from profile_reader_agent import get_profile_reader_agent
-from match_scorer_agent import get_match_scorer_agent
-from redflag_agent import get_redflag_agent
-from wingman_agent import get_wingman_agent
-from room_matcher_agent import get_room_hunter_agent
+from .profile_reader_agent import get_profile_reader_agent
+from .match_scorer_agent import get_match_scorer_agent
+from .redflag_agent import get_redflag_agent
+from .wingman_agent import get_wingman_agent
+from .room_matcher_agent import get_room_hunter_agent
 from agents import Agent, Runner,OpenAIChatCompletionsModel, RunConfig,AsyncOpenAI, ModelProvider, Model, set_default_openai_api, set_tracing_disabled, set_default_openai_client
 
 load_dotenv(find_dotenv())
 
-MODEL_NAME='gpt-4.1-mini'
 set_default_openai_api("chat_completions")
 set_tracing_disabled(disabled=True)
 
-# GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-# print('gemini key',GEMINI_API_KEY)
-
-# if not GEMINI_API_KEY:
-#     raise ValueError("GEMINI_API_KEY environment variable not set")
-
-# external_client = AsyncOpenAI(
-#     api_key=GEMINI_API_KEY,
-#     base_url="https://generativelanguage.googleapis.com/v1beta",
-# )
-
-# set_default_openai_client(client=external_client, use_for_tracing=False)
-
-# class CustomModelProvider(ModelProvider):
-#     def get_model(self, model_name: str | None) -> Model:
-#         return OpenAIChatCompletionsModel(model=model_name or MODEL_NAME, openai_client=external_client)
-# CUSTOM_MODEL_PROVIDER = CustomModelProvider()
-# run_config = RunConfig(model_provider=CUSTOM_MODEL_PROVIDER)
+async def set_fallback_llm():
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+    print('gemini key',GEMINI_API_KEY)
+    if not GEMINI_API_KEY:
+        raise ValueError("GEMINI_API_KEY environment variable not set")
+    external_client = AsyncOpenAI(
+        api_key=GEMINI_API_KEY,
+        base_url="https://generativelanguage.googleapis.com/v1beta",
+    )
+    set_default_openai_client(client=external_client, use_for_tracing=False)
 
 
 def load_profiles():
@@ -46,10 +37,17 @@ def load_profiles():
         data = json.load(f)
     return data
 
-async def main3():
+async def smart_student_living(user_input:str, degrade:bool=False):
     roommates_data= load_profiles()
-    room_hunter_agent = get_room_hunter_agent(MODEL_NAME)
     
+    # Adjust paramteres if Degrade mode
+    if degrade:
+        await set_fallback_llm()
+                
+    MODEL_NAME='gemini-2.0-flash' if degrade else 'gpt-4.1-mini'
+    print('degrade: ',degrade, MODEL_NAME) 
+    
+    room_hunter_agent = get_room_hunter_agent(MODEL_NAME)
     profile_reader = get_profile_reader_agent(MODEL_NAME)
     match_scorer = get_match_scorer_agent(MODEL_NAME)
     detect_conflicts = get_redflag_agent(MODEL_NAME)
@@ -97,23 +95,26 @@ async def main3():
             detect_conflicts.as_tool(tool_name='detect_conflicts',tool_description="Compare the user profile data with the dataset profile and returns a list of conflicts in a short and clear sentence."),
             wingman_agent.as_tool(tool_name="explain_match",tool_description="Consider the matching score and conflicts and return summary and suggestions based on the profiles data.")
         ],
+        tool_use_behavior="stop_on_first_tool" if degrade else "run_llm_again",
         handoffs=[room_hunter_agent],
         handoff_description='Look at the address, area and city of the user and hand over to room_hunter_agent only if user ask to provide him the nearby places.',
     )
     
-    user_raw_ad = "Karachi Gulshan e Iqbal near Nipa. Budget 38k. Saaf sutra banda chahiye. Raat ko 10 baje so jata hoon. Non-veg khata hoon. Bilkul shor pasand nahi. Guests allowed nahi."
-    # user_asking_loc ="Hostel seat available G-11, Islamabad. Budget no issue. Want Tidy banda, prefer Online classes, Quiet ok.I just want to know the nearby housing information."
-    
     user_prompt = json.dumps({
-        'User_ad': user_raw_ad,
-        "Roommate_dataset":roommates_data  
+        'User_ad': user_input,
+        "Roommate_dataset":roommates_data,  
     })
     
     try:
-        response = await Runner.run(orch,user_prompt)
-        print(response.final_output)
+        response = await Runner.run(orch, user_prompt)
+        output = response.final_output
+        print('output: ',output)
+        return output
     except Exception as e:
         print('error: ', e)
+        return 'None'
 
 if __name__ == "__main__":
-    asyncio.run(main3())
+    # user_raw_ad = "Karachi Gulshan e Iqbal near Nipa. Budget 38k. Saaf sutra banda chahiye. Raat ko 10 baje so jata hoon. Non-veg khata hoon. Bilkul shor pasand nahi. Guests allowed nahi."
+    user_asking_loc ="Hostel seat available G-11, Islamabad. Budget no issue. Want Tidy banda, prefer Online classes, Quiet ok.I just want to know the nearby housing information."
+    asyncio.run(smart_student_living(user_asking_loc, degrade=True))
