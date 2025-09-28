@@ -14,21 +14,22 @@ from agents import Agent, Runner,OpenAIChatCompletionsModel, RunConfig,AsyncOpen
 
 load_dotenv(find_dotenv())
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-print('gemini key',GEMINI_API_KEY)
-MODEL_NAME='gemini-2.5-flash-lite'
-
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY environment variable not set")
-
-external_client = AsyncOpenAI(
-    api_key=GEMINI_API_KEY,
-    base_url="https://generativelanguage.googleapis.com/v1beta",
-)
-
-set_default_openai_client(client=external_client, use_for_tracing=False)
+MODEL_NAME='gpt-4.1-mini'
 set_default_openai_api("chat_completions")
 set_tracing_disabled(disabled=True)
+
+# GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# print('gemini key',GEMINI_API_KEY)
+
+# if not GEMINI_API_KEY:
+#     raise ValueError("GEMINI_API_KEY environment variable not set")
+
+# external_client = AsyncOpenAI(
+#     api_key=GEMINI_API_KEY,
+#     base_url="https://generativelanguage.googleapis.com/v1beta",
+# )
+
+# set_default_openai_client(client=external_client, use_for_tracing=False)
 
 # class CustomModelProvider(ModelProvider):
 #     def get_model(self, model_name: str | None) -> Model:
@@ -108,7 +109,6 @@ async def main3():
         "Roommate_dataset":roommates_data  
     })
     
-    print(len(roommates_data))
     try:
         response = await Runner.run(orch,user_prompt)
         print(response.final_output)
