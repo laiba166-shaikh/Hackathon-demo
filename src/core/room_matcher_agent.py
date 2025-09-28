@@ -1,6 +1,6 @@
 from agents import Agent
-from apis.geocode import getgeocode_address
-from apis.places import get_nearby_places
+from .apis.geocode import getgeocode_address
+from .apis.places import get_nearby_places
 
 def get_room_hunter_agent(model_name):
     return  Agent(

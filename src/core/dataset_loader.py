@@ -1,7 +1,7 @@
 from agents import Runner, function_tool, Agent
 import json
 import asyncio
-from setup_config import config
+from .setup_config import config
 import os
 
 @function_tool
